@@ -11,8 +11,9 @@ use sha2::Sha256;
 use std::str;
 use subtle::ConstantTimeEq;
 
+use tower_http::trace::{self, TraceLayer};
+use tracing::Level;
 use tracing::{debug, error, info};
-use tracing_subscriber;
 
 // Constants for Twitch message headers (lowercase for case-insensitive comparison)
 const TWITCH_MESSAGE_ID: &str = "twitch-eventsub-message-id";
@@ -82,6 +83,8 @@ async fn handle_eventsub(
         .and_then(|v| v.to_str().ok())
         .ok_or(StatusCode::BAD_REQUEST)?;
 
+    info!("Message type: {message_type}");
+
     // Process different message types
     match message_type {
         MESSAGE_TYPE_NOTIFICATION => {
@@ -102,12 +105,12 @@ async fn handle_eventsub(
             // Return the challenge for webhook verification
             let challenge = notification.challenge.ok_or(StatusCode::BAD_REQUEST)?;
 
-            Ok(challenge.into_response())
-            // Ok(axum::response::Response::builder()
-            //     .status(StatusCode::OK)
-            //     .header("Content-Type", "text/plain")
-            //     .body(challenge.into())
-            //     .unwrap())
+            info!("Challenge: {}", challenge);
+            Ok(axum::response::Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "text/plain")
+                .body(challenge.into())
+                .unwrap())
         }
         MESSAGE_TYPE_REVOCATION => {
             // Log revocation details
@@ -180,9 +183,15 @@ fn verify_message(computed_hmac: &str, signature: &str) -> bool {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().with_target(false).json().init();
     // Create router
-    let app = Router::new().route("/eventsub/", post(handle_eventsub));
+    let app = Router::new()
+        .route("/eventsub/", post(handle_eventsub))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
+        );
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
         .await
