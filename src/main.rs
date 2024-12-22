@@ -6,6 +6,7 @@ use axum::{
     routing::post,
     Router,
 };
+use chrono::prelude::*;
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
@@ -47,7 +48,7 @@ struct TwitchEvent {
     broadcaster_user_id: String,
     broadcaster_user_login: String,
     broadcaster_user_name: String,
-    followed_at: Option<String>,
+    followed_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,7 +61,7 @@ struct TwitchSubscription {
     condition: TwitchCondition,
     cost: u64,
     transport: TwitchTransport,
-    created_at: String, // TODO: change this to a proper datetime type
+    created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
