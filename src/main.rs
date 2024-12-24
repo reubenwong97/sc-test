@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use axum::{
     body::Bytes,
     extract::Json,
@@ -83,7 +85,7 @@ async fn handle_twitch_payload(
     let secret = get_secret();
     let message = get_hmac_message(&headers, &body)?;
     let computed_hmac = get_hmac(&secret, &message);
-    let full_computed_hmac = format!("{}{}", HMAC_PREFIX, computed_hmac);
+    let full_computed_hmac = format!("{HMAC_PREFIX}{computed_hmac}");
 
     let signature = headers
         .get(TWITCH_MESSAGE_SIGNATURE)
@@ -141,7 +143,7 @@ fn get_hmac_message(headers: &HeaderMap, body: &Bytes) -> Result<String, StatusC
 
     let body_str = str::from_utf8(body).map_err(|_| StatusCode::BAD_REQUEST)?;
 
-    Ok(format!("{}{}{}", message_id, message_timestamp, body_str))
+    Ok(format!("{message_id}{message_timestamp}{body_str}"))
 }
 
 // Compute HMAC
