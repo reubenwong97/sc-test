@@ -90,12 +90,21 @@ async fn handle_auth(
     if params.error.is_some() {
         return Err(StatusCode::BAD_REQUEST);
     };
+    let code = params.code.unwrap();
+    let scope = params.scope.unwrap();
+    let state = params.state;
 
     let auth_url = "https://id.twitch.tv/oauth2/token";
     let client = reqwest::Client::new();
     let params = [
         ("client_id", env::var("CLIENT_ID").unwrap()),
         ("client_secret", env::var("CLIENT_SECRET").unwrap()),
+        ("code", code),
+        ("grant_type", "authorization_code".to_string()),
+        (
+            "redirect_uri",
+            "http://localhost:8080/handle_auth/".to_string(),
+        ),
     ];
     let res = client.post(auth_url).form(&params).send().await;
 
@@ -199,7 +208,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv()?;
     tracing_subscriber::fmt().with_target(false).init();
     // Create router
-    let app = Router::new().route("/eventsub/", post(handle_twitch_payload));
+    let app = Router::new()
+        .route("/eventsub/", post(handle_twitch_payload))
+        .route("/handle_auth/", post(handle_auth));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
         .await
