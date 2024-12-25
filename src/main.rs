@@ -2,19 +2,21 @@
 
 use axum::{
     body::Bytes,
-    extract::Json,
+    extract::{Json, Query},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::post,
     Router,
 };
 use chrono::prelude::*;
+use derive_more::From;
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
-use std::str;
+use std::env;
+use std::error::Error;
+use std::{collections::HashMap, str};
 use subtle::ConstantTimeEq;
-
 use tracing::info;
 
 // Constants for Twitch message headers (lowercase for case-insensitive comparison)
@@ -71,6 +73,34 @@ struct TwitchPayload {
     subscription: TwitchSubscription,
     event: Option<TwitchEvent>,
     challenge: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AuthParams {
+    code: Option<String>,
+    scope: Option<String>,
+    state: String,
+    error: Option<String>,
+    error_description: Option<String>,
+}
+
+async fn handle_auth(
+    Query(params): Query<AuthParams>,
+) -> Result<axum::response::Response, StatusCode> {
+    if params.error.is_some() {
+        return Err(StatusCode::BAD_REQUEST);
+    };
+
+    let auth_url = "https://id.twitch.tv/oauth2/token";
+    let client = reqwest::Client::new();
+    let params = [
+        ("client_id", env::var("CLIENT_ID").unwrap()),
+        ("client_secret", env::var("CLIENT_SECRET").unwrap()),
+    ];
+    let res = client.post(auth_url).form(&params).send().await;
+
+    // TODO: Change this, currently silence warnings
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 async fn handle_twitch_payload(
@@ -165,7 +195,8 @@ fn verify_message(computed_hmac: &str, signature: &str) -> bool {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
+    dotenvy::dotenv()?;
     tracing_subscriber::fmt().with_target(false).init();
     // Create router
     let app = Router::new().route("/eventsub/", post(handle_twitch_payload));
@@ -177,4 +208,6 @@ async fn main() {
 
     // Start server
     axum::serve(listener, app).await.unwrap();
+
+    Ok(())
 }
