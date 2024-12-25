@@ -9,7 +9,7 @@ use axum::{
     Router,
 };
 use chrono::prelude::*;
-use derive_more::From;
+use derive_more::{derive, From};
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
@@ -76,6 +76,15 @@ struct TwitchPayload {
 }
 
 #[derive(Debug, Deserialize)]
+struct AccessTokens {
+    access_token: String,
+    expires_in: u64,
+    refresh_token: String,
+    scope: Vec<String>,
+    token_type: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct AuthParams {
     code: Option<String>,
     scope: Option<String>,
@@ -106,7 +115,8 @@ async fn handle_auth(
             "http://localhost:3000/handle_auth/".to_string(),
         ),
     ];
-    let res = client.post(auth_url).form(&params).send().await;
+    let res = client.post(auth_url).form(&params).send().await.unwrap();
+    let tokens: AccessTokens = res.json().await.unwrap();
 
     // TODO: Change this, currently silence warnings
     Ok(StatusCode::NO_CONTENT.into_response())
