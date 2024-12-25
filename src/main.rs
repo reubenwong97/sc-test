@@ -103,7 +103,7 @@ async fn handle_auth(
         ("grant_type", "authorization_code".to_string()),
         (
             "redirect_uri",
-            "http://localhost:8080/handle_auth/".to_string(),
+            "http://localhost:3000/handle_auth/".to_string(),
         ),
     ];
     let res = client.post(auth_url).form(&params).send().await;
@@ -212,10 +212,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .route("/eventsub/", post(handle_twitch_payload))
         .route("/handle_auth/", post(handle_auth));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
-    info!("Server listening on http://localhost:8080");
+    info!("Server listening on http://localhost:3000");
 
     // Start server
     axum::serve(listener, app).await.unwrap();
